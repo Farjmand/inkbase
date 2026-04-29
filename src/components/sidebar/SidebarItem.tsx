@@ -1,55 +1,104 @@
-import React, { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useVaultStore } from '../../store/vaultStore'
 import type { Page } from '../../types'
 
 interface Props {
-  page: Page
-  depth?: number
+  readonly page: Page
+  readonly depth?: number
 }
 
 export function SidebarItem({ page, depth = 0 }: Props) {
-  const { activePageId, setActivePage, createPage, deletePage } = useVaultStore()
+  const { activePageId, setActivePage, createPage, deletePage, updatePage } = useVaultStore()
   const [expanded, setExpanded] = useState(true)
-  const [hovered, setHovered] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [renameVal, setRenameVal] = useState(page.title)
+  const inputRef = useRef<HTMLInputElement>(null)
   const isActive = activePageId === page.id
   const hasChildren = (page.children?.length ?? 0) > 0
+
+  function startRename() {
+    setRenameVal(page.title)
+    setRenaming(true)
+    setTimeout(() => { inputRef.current?.select() }, 0)
+  }
+
+  function commitRename() {
+    setRenaming(false)
+    const val = renameVal.trim()
+    if (val && val !== page.title) updatePage(page.id, { title: val })
+    else setRenameVal(page.title)
+  }
+
+  function onRenameKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') commitRename()
+    if (e.key === 'Escape') { setRenaming(false); setRenameVal(page.title) }
+  }
+
+  const coverDot = page.cover?.startsWith('#')
+    ? <span className="w-2 h-2 rounded-sm shrink-0 ml-0.5" style={{ background: page.cover }} />
+    : null
+
+  const expandArrow = expanded ? '▾' : '▸'
+  const expandIcon = hasChildren ? expandArrow : ''
 
   return (
     <div>
       <div
-        className={`group flex items-center gap-1 px-2 py-[3px] rounded-md cursor-pointer text-sm select-none
-          ${isActive ? 'bg-[#e5e5e3] text-[#1a1a1a]' : 'text-[#5a5a5a] hover:bg-[#efefed]'}`}
-        style={{ paddingLeft: `${8 + depth * 16}px` }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onClick={() => setActivePage(page.id)}
+        className="group flex items-center gap-1 px-2 py-0.75 rounded-md text-sm select-none hover:[background:var(--color-hover)]"
+        style={{
+          paddingLeft: `${8 + depth * 16}px`,
+          background: isActive ? 'var(--color-border)' : undefined,
+          color: isActive ? 'var(--color-text)' : 'var(--color-text-muted)',
+        }}
       >
         {/* Expand toggle */}
         <button
-          className="w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 text-xs shrink-0"
-          onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
+          className="w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:opacity-100! text-xs shrink-0"
+          onClick={() => setExpanded(v => !v)}
         >
-          {hasChildren ? (expanded ? '▾' : '▸') : ''}
+          {expandIcon}
         </button>
 
         {/* Icon */}
         <span className="text-sm shrink-0">{page.icon}</span>
 
-        {/* Title */}
-        <span className="truncate flex-1">{page.title || 'Untitled'}</span>
+        {/* Cover dot */}
+        {coverDot}
 
-        {/* Actions */}
-        {hovered && (
-          <span className="flex gap-1 ml-1 shrink-0">
+        {/* Title — button when idle, input when renaming */}
+        {renaming ? (
+          <input
+            ref={inputRef}
+            autoFocus
+            className="flex-1 bg-transparent outline-none border-b text-sm min-w-0"
+            style={{ borderColor: 'var(--color-accent)', color: 'var(--color-text)' }}
+            value={renameVal}
+            onChange={e => setRenameVal(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={onRenameKeyDown}
+          />
+        ) : (
+          <button
+            className="flex-1 text-left truncate min-w-0 cursor-pointer"
+            onClick={() => setActivePage(page.id)}
+            onDoubleClick={startRename}
+          >
+            {page.title || 'Untitled'}
+          </button>
+        )}
+
+        {/* Actions — visible on group hover */}
+        {!renaming && (
+          <span className="hidden group-hover:flex gap-1 ml-1 shrink-0">
             <button
               title="Add sub-page"
               className="opacity-50 hover:opacity-100 text-xs px-1"
-              onClick={e => { e.stopPropagation(); createPage(page.id) }}
+              onClick={() => createPage(page.id)}
             >＋</button>
             <button
               title="Delete"
               className="opacity-50 hover:opacity-100 text-xs px-1 hover:text-red-500"
-              onClick={e => { e.stopPropagation(); deletePage(page.id) }}
+              onClick={() => deletePage(page.id)}
             >✕</button>
           </span>
         )}

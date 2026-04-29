@@ -4,7 +4,7 @@
 
 ---
 
-## Phase 1 — The Skeleton *(current)*
+## Phase 1 — The Skeleton *(done)*
 
 Core app infrastructure. The baby learns to walk.
 
@@ -16,39 +16,42 @@ Core app infrastructure. The baby learns to walk.
 - [x] BlockNote block editor per page
 - [x] Debounced auto-save (title + content → .md files)
 - [x] Frontmatter-based metadata (id, title, icon, cover, parentId)
-- [ ] Inline title rename in sidebar
+- [x] Inline title rename in sidebar (double-click)
 - [ ] Drag-and-drop page reordering in sidebar
 - [ ] Welcome screen polish
 
 ---
 
-## Phase 2 — The Notion Glow-Up
+## Phase 2 — The Notion Glow-Up *(done)*
 
 Visual identity. The baby gets a wardrobe.
 
-- [ ] Page cover: solid color picker
-- [ ] Page cover: image URL input
-- [ ] Page cover: unsplash random image picker
-- [ ] Emoji icon picker (twemoji-based)
-- [ ] Cover + icon shown in sidebar item
-- [ ] Page header: change icon / change cover buttons (Notion-style hover)
-- [ ] Extra block types: callout, toggle, divider, columns
-- [ ] Dark mode support
+- [x] Page cover: solid color picker
+- [x] Page cover: image URL input
+- [x] Page cover: random image picker (picsum.photos gallery)
+- [x] Emoji icon picker (category grid, 9 categories)
+- [x] Cover color dot shown in sidebar item
+- [x] Page header: change icon / change cover buttons (Notion-style hover)
+- [x] Dark mode support (toggle in sidebar, persisted to localStorage)
+- [ ] Extra block types: callout, toggle, divider, columns (deferred — needs markdown persistence)
 
 ---
 
-## Phase 3 — Databases
+## Phase 3 — Databases *(done)*
 
 The crown jewel. Notion's most-missed feature, now local.
 
-- [ ] Database page type (special frontmatter)
-- [ ] Define database schema (property columns: text, select, date, checkbox, number)
-- [ ] Table view — inline editing cells
+- [x] Database page type (special frontmatter, `type: database`)
+- [x] Define database schema (property columns: text, select, date, checkbox, number)
+- [x] Table view — inline editing cells
+- [x] Add / delete rows
+- [x] Add / rename / delete / retype columns
+- [x] Select property: create options on the fly
+- [x] Rows persisted as individual `.md` files (`row_*.md`)
 - [ ] Kanban view — drag cards between status columns
 - [ ] Calendar view — date property drives placement
-- [ ] Filter rows/cards by property
+- [ ] Filter rows by property value
 - [ ] Sort by property
-- [ ] Inline database reference in a regular page
 
 ---
 

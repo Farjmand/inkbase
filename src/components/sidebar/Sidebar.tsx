@@ -1,9 +1,11 @@
 
 import { useVaultStore } from '../../store/vaultStore'
+import { useUIStore } from '../../store/uiStore'
 import { SidebarItem } from './SidebarItem'
 
 export function Sidebar() {
-  const { vault, createPage, closeVault } = useVaultStore()
+  const { vault, createPage, createDatabase, closeVault } = useVaultStore()
+  const { dark, toggleDark } = useUIStore()
 
   return (
     <div
@@ -22,11 +24,20 @@ export function Sidebar() {
             {vault?.name ?? 'inkbase'}
           </span>
         </div>
-        <button
-          title="Close vault"
-          className="text-xs opacity-40 hover:opacity-80"
-          onClick={closeVault}
-        >⏏</button>
+        <div className="flex items-center gap-1">
+          <button
+            title={dark ? 'Light mode' : 'Dark mode'}
+            className="text-sm opacity-40 hover:opacity-80 transition-opacity"
+            style={{ color: 'var(--color-text)' }}
+            onClick={toggleDark}
+          >{dark ? '☀️' : '🌙'}</button>
+          <button
+            title="Close vault"
+            className="text-xs opacity-40 hover:opacity-80 ml-1"
+            style={{ color: 'var(--color-text)' }}
+            onClick={closeVault}
+          >⏏</button>
+        </div>
       </div>
 
       {/* Page tree */}
@@ -41,15 +52,27 @@ export function Sidebar() {
         ))}
       </div>
 
-      {/* Footer: New page */}
-      <div className="border-t px-3 py-2" style={{ borderColor: 'var(--color-border)' }}>
+      {/* Footer: New page + New database */}
+      <div className="border-t px-3 py-2 flex flex-col gap-0.5" style={{ borderColor: 'var(--color-border)' }}>
         <button
-          className="flex items-center gap-2 text-sm w-full rounded-md px-2 py-1.5 hover:bg-[#efefed] transition-colors"
+          className="flex items-center gap-2 text-sm w-full rounded-md px-2 py-1.5 transition-colors"
           style={{ color: 'var(--color-text-muted)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-hover)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           onClick={() => createPage(null)}
         >
           <span className="text-base">＋</span>
           <span>New page</span>
+        </button>
+        <button
+          className="flex items-center gap-2 text-sm w-full rounded-md px-2 py-1.5 transition-colors"
+          style={{ color: 'var(--color-text-muted)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-hover)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          onClick={() => createDatabase(null)}
+        >
+          <span className="text-base">🗃️</span>
+          <span>New database</span>
         </button>
       </div>
     </div>

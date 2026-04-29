@@ -7,6 +7,7 @@ import {
   deletePage,
   buildPageTree,
   createNewPage,
+  createNewDatabase,
 } from '../lib/fs'
 
 interface VaultState {
@@ -20,6 +21,7 @@ interface VaultState {
   closeVault: () => void
   setActivePage: (id: string) => void
   createPage: (parentId?: string | null) => Promise<void>
+  createDatabase: (parentId?: string | null) => Promise<void>
   updatePage: (id: string, updates: Partial<Omit<Page, 'id' | 'children'>>) => Promise<void>
   deletePage: (id: string) => Promise<void>
   reloadVault: () => Promise<void>
@@ -66,6 +68,21 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     })
   },
 
+  createDatabase: async (parentId = null) => {
+    const { vault, flatPages } = get()
+    if (!vault) return
+    const newDb = createNewDatabase(parentId)
+    await writePage(vault.handle, newDb)
+    const newFlat = [...flatPages, newDb]
+    const rootPages = buildPageTree(newFlat)
+    set({
+      flatPages: newFlat,
+      vault: { ...vault, rootPages },
+      activePageId: newDb.id,
+      activePage: { ...newDb, children: [] },
+    })
+  },
+
   updatePage: async (id, updates) => {
     const { vault, flatPages } = get()
     if (!vault) return
@@ -93,13 +110,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     await deletePage(vault.handle, id)
     const newFlat = flatPages.filter(p => p.id !== id)
     const rootPages = buildPageTree(newFlat)
+    const fallbackPage = newFlat[0] ? { ...newFlat[0], children: [] } : null
+    const nextActivePage = activePageId === id ? fallbackPage : get().activePage
+    const nextActivePageId = activePageId === id ? (newFlat[0]?.id ?? null) : activePageId
     set({
       flatPages: newFlat,
       vault: { ...vault, rootPages },
-      activePageId: activePageId === id ? (newFlat[0]?.id ?? null) : activePageId,
-      activePage: activePageId === id
-        ? (newFlat[0] ? { ...newFlat[0], children: [] } : null)
-        : get().activePage,
+      activePageId: nextActivePageId,
+      activePage: nextActivePage,
     })
   },
 
