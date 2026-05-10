@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react'
-import type { PropertyDef, DatabaseRow } from '../../types'
-import { useDatabaseStore } from '../../store/databaseStore'
+import { useEffect, useRef, useState } from 'react'
+import type { PropertyDef, DatabaseRow } from '@/types'
+import { useDatabaseStore } from '@/store/databaseStore'
+import { useVaultStore } from '@/store/vaultStore'
+import { useInlineEdit } from '@/hooks/useInlineEdit'
 
 interface Props {
   row: DatabaseRow
@@ -8,8 +10,9 @@ interface Props {
   databaseId: string
 }
 
-export function PropertyCell({ row, col, databaseId }: Props) {
-  const { updateCell, updateColumn } = useDatabaseStore()
+export function PropertyCell({ row, col, databaseId }: Readonly<Props>) {
+  const { updateCell } = useDatabaseStore()
+  const { updateColumn } = useVaultStore()
   const value = row.properties[col.id] ?? null
 
   const save = (val: string | number | boolean | null) =>
@@ -31,9 +34,7 @@ export function PropertyCell({ row, col, databaseId }: Props) {
           options={col.options ?? []}
           onSave={save}
           onAddOption={opt =>
-            updateColumn(databaseId, col.id, {
-              options: [...(col.options ?? []), opt],
-            })
+            updateColumn(databaseId, col.id, { options: [...(col.options ?? []), opt] })
           }
         />
       )
@@ -47,34 +48,32 @@ export function PropertyCell({ row, col, databaseId }: Props) {
 function TextCell({
   value,
   onSave,
-}: {
-  value: string | null
-  onSave: (v: string) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value ?? '')
+}: Readonly<{ value: string | null; onSave: (v: string) => void }>) {
+  const { editing, draft, setDraft, startEdit, commit, cancel } = useInlineEdit(value ?? '', onSave)
 
-  if (!editing)
+  if (editing) {
     return (
-      <div
-        className="cell-idle px-2 py-1.5 min-h-[32px] cursor-text truncate text-sm"
-        style={{ color: value ? 'var(--color-text)' : 'var(--color-text-muted)' }}
-        onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-      >
-        {value || ''}
-      </div>
+      <input
+        autoFocus
+        className="w-full px-2 py-1.5 text-sm bg-transparent outline-none border border-blue-400 rounded"
+        style={{ color: 'var(--color-text)' }}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') cancel() }}
+      />
     )
+  }
 
   return (
-    <input
-      autoFocus
-      className="w-full px-2 py-1.5 text-sm bg-transparent outline-none border border-blue-400 rounded"
-      style={{ color: 'var(--color-text)' }}
-      value={draft}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={() => { setEditing(false); onSave(draft) }}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') { setEditing(false); onSave(draft) } }}
-    />
+    <button
+      type="button"
+      className="cell-idle w-full text-left px-2 py-1.5 min-h-8 text-sm truncate bg-transparent border-none"
+      style={{ color: value ? 'var(--color-text)' : 'var(--color-text-muted)' }}
+      onClick={() => startEdit(value ?? '')}
+    >
+      {value ?? ''}
+    </button>
   )
 }
 
@@ -83,63 +82,53 @@ function TextCell({
 function NumberCell({
   value,
   onSave,
-}: {
-  value: number | null
-  onSave: (v: number | null) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value !== null ? String(value) : '')
+}: Readonly<{ value: number | null; onSave: (v: number | null) => void }>) {
+  const { editing, draft, setDraft, startEdit, commit, cancel } = useInlineEdit<string>(
+    value === null ? '' : String(value),
+    val => {
+      const parsed = val === '' ? null : Number.parseFloat(val)
+      onSave(parsed === null || Number.isNaN(parsed) ? null : parsed)
+    }
+  )
 
-  if (!editing)
+  if (editing) {
     return (
-      <div
-        className="cell-idle px-2 py-1.5 min-h-[32px] cursor-text text-sm text-right tabular-nums"
-        style={{ color: value !== null ? 'var(--color-text)' : 'var(--color-text-muted)' }}
-        onClick={() => { setDraft(value !== null ? String(value) : ''); setEditing(true) }}
-      >
-        {value !== null ? value : ''}
-      </div>
+      <input
+        autoFocus
+        type="number"
+        className="w-full px-2 py-1.5 text-sm bg-transparent outline-none border border-blue-400 rounded text-right tabular-nums"
+        style={{ color: 'var(--color-text)' }}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') cancel() }}
+      />
     )
+  }
 
   return (
-    <input
-      autoFocus
-      type="number"
-      className="w-full px-2 py-1.5 text-sm bg-transparent outline-none border border-blue-400 rounded text-right tabular-nums"
-      style={{ color: 'var(--color-text)' }}
-      value={draft}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={() => {
-        setEditing(false)
-        const num = draft === '' ? null : parseFloat(draft)
-        onSave(isNaN(num as number) ? null : num)
-      }}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === 'Escape') {
-          setEditing(false)
-          const num = draft === '' ? null : parseFloat(draft)
-          onSave(isNaN(num as number) ? null : num)
-        }
-      }}
-    />
+    <button
+      type="button"
+      className="cell-idle w-full text-right px-2 py-1.5 min-h-8 text-sm tabular-nums bg-transparent border-none"
+      style={{ color: value === null ? 'var(--color-text-muted)' : 'var(--color-text)' }}
+      onClick={() => startEdit(value === null ? '' : String(value))}
+    >
+      {value ?? ''}
+    </button>
   )
 }
 
-// ─── Checkbox ─────────────────────────────────────────────────────────────────
+// ─── Checkbox ────────────────────────────────────────────────────────────────
 
 function CheckboxCell({
   value,
   onSave,
-}: {
-  value: boolean | null
-  onSave: (v: boolean) => void
-}) {
-  const checked = value === true
+}: Readonly<{ value: boolean | null; onSave: (v: boolean) => void }>) {
   return (
-    <div className="flex items-center justify-center min-h-[32px]">
+    <div className="flex items-center justify-center min-h-8">
       <input
         type="checkbox"
-        checked={checked}
+        checked={value === true}
         className="w-4 h-4 cursor-pointer accent-blue-500"
         onChange={e => onSave(e.target.checked)}
       />
@@ -152,33 +141,32 @@ function CheckboxCell({
 function DateCell({
   value,
   onSave,
-}: {
-  value: string | null
-  onSave: (v: string | null) => void
-}) {
+}: Readonly<{ value: string | null; onSave: (v: string | null) => void }>) {
   const [editing, setEditing] = useState(false)
 
-  if (!editing)
+  if (editing) {
     return (
-      <div
-        className="cell-idle px-2 py-1.5 min-h-[32px] cursor-pointer text-sm"
-        style={{ color: value ? 'var(--color-text)' : 'var(--color-text-muted)' }}
-        onClick={() => setEditing(true)}
-      >
-        {value ? new Date(value).toLocaleDateString() : ''}
-      </div>
+      <input
+        autoFocus
+        type="date"
+        className="w-full px-2 py-1.5 text-sm bg-transparent outline-none border border-blue-400 rounded"
+        style={{ color: 'var(--color-text)', colorScheme: 'light dark' }}
+        value={value ?? ''}
+        onChange={e => { onSave(e.target.value || null); setEditing(false) }}
+        onBlur={() => setEditing(false)}
+      />
     )
+  }
 
   return (
-    <input
-      autoFocus
-      type="date"
-      className="w-full px-2 py-1.5 text-sm bg-transparent outline-none border border-blue-400 rounded"
-      style={{ color: 'var(--color-text)', colorScheme: 'light dark' }}
-      value={value ?? ''}
-      onChange={e => { onSave(e.target.value || null); setEditing(false) }}
-      onBlur={() => setEditing(false)}
-    />
+    <button
+      type="button"
+      className="cell-idle w-full text-left px-2 py-1.5 min-h-8 text-sm bg-transparent border-none"
+      style={{ color: value ? 'var(--color-text)' : 'var(--color-text-muted)' }}
+      onClick={() => setEditing(true)}
+    >
+      {value ? new Date(value).toLocaleDateString() : ''}
+    </button>
   )
 }
 
@@ -189,37 +177,42 @@ function SelectCell({
   options,
   onSave,
   onAddOption,
-}: {
+}: Readonly<{
   value: string | null
   options: string[]
   onSave: (v: string | null) => void
   onAddOption: (opt: string) => void
-}) {
+}>) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const ref = useRef<HTMLDivElement>(null)
 
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
   const filteredOpts = options.filter(o => o.toLowerCase().includes(draft.toLowerCase()))
 
   function choose(opt: string) {
-    onSave(opt)
-    setOpen(false)
-    setDraft('')
+    onSave(opt); setOpen(false); setDraft('')
   }
 
   function handleCreateNew() {
     const trimmed = draft.trim()
     if (!trimmed) return
-    onAddOption(trimmed)
-    onSave(trimmed)
-    setOpen(false)
-    setDraft('')
+    onAddOption(trimmed); onSave(trimmed); setOpen(false); setDraft('')
   }
 
   return (
     <div className="relative" ref={ref}>
-      <div
-        className="cell-idle px-2 py-1.5 min-h-[32px] cursor-pointer text-sm flex items-center gap-1"
+      <button
+        type="button"
+        className="cell-idle w-full text-left px-2 py-1.5 min-h-8 text-sm flex items-center gap-1 bg-transparent border-none"
         onClick={() => setOpen(v => !v)}
       >
         {value ? (
@@ -229,7 +222,7 @@ function SelectCell({
         ) : (
           <span style={{ color: 'var(--color-text-muted)' }}>—</span>
         )}
-      </div>
+      </button>
 
       {open && (
         <div
@@ -250,6 +243,7 @@ function SelectCell({
           <div className="py-1 max-h-40 overflow-y-auto">
             {value && (
               <button
+                type="button"
                 className="w-full text-left px-3 py-1.5 text-xs hover:[background:var(--color-hover)]"
                 style={{ color: 'var(--color-text-muted)' }}
                 onClick={() => { onSave(null); setOpen(false) }}
@@ -260,6 +254,7 @@ function SelectCell({
             {filteredOpts.map(opt => (
               <button
                 key={opt}
+                type="button"
                 className="w-full text-left px-3 py-1.5 text-xs hover:[background:var(--color-hover)]"
                 style={{ color: 'var(--color-text)' }}
                 onClick={() => choose(opt)}
@@ -269,6 +264,7 @@ function SelectCell({
             ))}
             {draft.trim() && !options.includes(draft.trim()) && (
               <button
+                type="button"
                 className="w-full text-left px-3 py-1.5 text-xs hover:[background:var(--color-hover)]"
                 style={{ color: 'var(--color-accent)' }}
                 onClick={handleCreateNew}

@@ -1,30 +1,57 @@
 import { create } from 'zustand'
-import type { Page, Vault } from '../types'
+import { v4 as uuidv4 } from 'uuid'
+import type { Page, PageNode, PropertyDef, PropertyType } from '@/types'
 import {
   openVaultDirectory,
   readAllPages,
   writePage,
-  deletePage,
+  deletePage as deletePageFile,
+  deleteAllRows,
   buildPageTree,
   createNewPage,
   createNewDatabase,
-} from '../lib/fs'
+} from '@/lib/fs'
 
 interface VaultState {
-  vault: Vault | null
+  vault: { name: string; handle: FileSystemDirectoryHandle; rootPages: PageNode[] } | null
   activePageId: string | null
   activePage: Page | null
-  flatPages: Omit<Page, 'children'>[]
+  flatPages: Page[]
 
-  // Actions
   openVault: () => Promise<void>
   closeVault: () => void
   setActivePage: (id: string) => void
   createPage: (parentId?: string | null) => Promise<void>
   createDatabase: (parentId?: string | null) => Promise<void>
-  updatePage: (id: string, updates: Partial<Omit<Page, 'id' | 'children'>>) => Promise<void>
+  updatePage: (id: string, updates: Partial<Omit<Page, 'id'>>) => Promise<void>
   deletePage: (id: string) => Promise<void>
   reloadVault: () => Promise<void>
+
+  // Schema mutations (owned here — databaseStore must not mutate vault state)
+  addColumn: (databaseId: string, name: string, type: PropertyType) => Promise<void>
+  updateColumn: (databaseId: string, colId: string, updates: Partial<PropertyDef>) => Promise<void>
+  deleteColumn: (databaseId: string, colId: string) => Promise<void>
+}
+
+function deriveActive(flat: Page[], id: string | null): Page | null {
+  return id ? (flat.find(p => p.id === id) ?? null) : null
+}
+
+function allDescendantIds(flat: Page[], rootId: string): string[] {
+  const ids: string[] = []
+  const seen = new Set<string>([rootId])
+  const queue = [rootId]
+  while (queue.length > 0) {
+    const cur = queue.shift()!
+    for (const p of flat) {
+      if (p.parentId === cur && !seen.has(p.id)) {
+        seen.add(p.id)
+        ids.push(p.id)
+        queue.push(p.id)
+      }
+    }
+  }
+  return ids
 }
 
 export const useVaultStore = create<VaultState>((set, get) => ({
@@ -36,21 +63,22 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   openVault: async () => {
     const handle = await openVaultDirectory()
     const flat = await readAllPages(handle)
-    const rootPages = buildPageTree(flat)
+    const firstId = flat[0]?.id ?? null
     set({
-      vault: { name: handle.name, handle, rootPages },
+      vault: { name: handle.name, handle, rootPages: buildPageTree(flat) },
       flatPages: flat,
-      activePageId: flat[0]?.id ?? null,
-      activePage: flat[0] ? { ...flat[0], children: [] } : null,
+      activePageId: firstId,
+      activePage: deriveActive(flat, firstId),
     })
   },
 
   closeVault: () => set({ vault: null, activePageId: null, activePage: null, flatPages: [] }),
 
-  setActivePage: (id: string) => {
-    const { flatPages } = get()
-    const page = flatPages.find(p => p.id === id)
-    if (page) set({ activePageId: id, activePage: { ...page, children: [] } })
+  setActivePage: (id) => {
+    set(state => ({
+      activePageId: id,
+      activePage: state.flatPages.find(p => p.id === id) ?? null,
+    }))
   },
 
   createPage: async (parentId = null) => {
@@ -59,12 +87,11 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const newPage = createNewPage(parentId)
     await writePage(vault.handle, newPage)
     const newFlat = [...flatPages, newPage]
-    const rootPages = buildPageTree(newFlat)
     set({
       flatPages: newFlat,
-      vault: { ...vault, rootPages },
+      vault: { ...vault, rootPages: buildPageTree(newFlat) },
       activePageId: newPage.id,
-      activePage: { ...newPage, children: [] },
+      activePage: newPage,
     })
   },
 
@@ -74,58 +101,89 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const newDb = createNewDatabase(parentId)
     await writePage(vault.handle, newDb)
     const newFlat = [...flatPages, newDb]
-    const rootPages = buildPageTree(newFlat)
     set({
       flatPages: newFlat,
-      vault: { ...vault, rootPages },
+      vault: { ...vault, rootPages: buildPageTree(newFlat) },
       activePageId: newDb.id,
-      activePage: { ...newDb, children: [] },
+      activePage: newDb,
     })
   },
 
   updatePage: async (id, updates) => {
-    const { vault, flatPages } = get()
+    const { vault, flatPages, activePageId } = get()
     if (!vault) return
     const idx = flatPages.findIndex(p => p.id === id)
     if (idx === -1) return
-    const updated = {
-      ...flatPages[idx],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    }
+    const updated: Page = { ...flatPages[idx], ...updates, updatedAt: new Date().toISOString() }
     await writePage(vault.handle, updated)
     const newFlat = [...flatPages]
     newFlat[idx] = updated
-    const rootPages = buildPageTree(newFlat)
     set({
       flatPages: newFlat,
-      vault: { ...vault, rootPages },
-      activePage: get().activePageId === id ? { ...updated, children: [] } : get().activePage,
+      vault: { ...vault, rootPages: buildPageTree(newFlat) },
+      activePage: deriveActive(newFlat, activePageId),
     })
   },
 
   deletePage: async (id) => {
     const { vault, flatPages, activePageId } = get()
     if (!vault) return
-    await deletePage(vault.handle, id)
-    const newFlat = flatPages.filter(p => p.id !== id)
-    const rootPages = buildPageTree(newFlat)
-    const fallbackPage = newFlat[0] ? { ...newFlat[0], children: [] } : null
-    const nextActivePage = activePageId === id ? fallbackPage : get().activePage
-    const nextActivePageId = activePageId === id ? (newFlat[0]?.id ?? null) : activePageId
+    const toDelete = [id, ...allDescendantIds(flatPages, id)]
+    await Promise.all(
+      toDelete.map(async pid => {
+        const page = flatPages.find(p => p.id === pid)
+        await deletePageFile(vault.handle, pid)
+        if (page?.type === 'database') await deleteAllRows(vault.handle, pid)
+      })
+    )
+    const newFlat = flatPages.filter(p => !toDelete.includes(p.id))
+    const nextId = toDelete.includes(activePageId ?? '') ? (newFlat[0]?.id ?? null) : activePageId
     set({
       flatPages: newFlat,
-      vault: { ...vault, rootPages },
-      activePageId: nextActivePageId,
-      activePage: nextActivePage,
+      vault: { ...vault, rootPages: buildPageTree(newFlat) },
+      activePageId: nextId,
+      activePage: deriveActive(newFlat, nextId),
     })
   },
 
   reloadVault: async () => {
-    const { vault } = get()
+    const { vault, activePageId } = get()
     if (!vault) return
     const flat = await readAllPages(vault.handle)
-    const rootPages = buildPageTree(flat)
-    set({ flatPages: flat, vault: { ...vault, rootPages } })
+    set({
+      flatPages: flat,
+      vault: { ...vault, rootPages: buildPageTree(flat) },
+      activePage: deriveActive(flat, activePageId),
+    })
+  },
+
+  addColumn: async (databaseId, name, type) => {
+    const { flatPages, updatePage } = get()
+    const db = flatPages.find(p => p.id === databaseId)
+    if (!db) return
+    const col: PropertyDef = {
+      id: uuidv4(),
+      name,
+      type,
+      options: type === 'select' ? [] : undefined,
+    }
+    await updatePage(databaseId, { schema: [...(db.schema ?? []), col] })
+  },
+
+  updateColumn: async (databaseId, colId, updates) => {
+    const { flatPages, updatePage } = get()
+    const db = flatPages.find(p => p.id === databaseId)
+    if (!db) return
+    const schema = (db.schema ?? []).map(c => (c.id === colId ? { ...c, ...updates } : c))
+    await updatePage(databaseId, { schema })
+  },
+
+  deleteColumn: async (databaseId, colId) => {
+    const { flatPages, updatePage } = get()
+    const db = flatPages.find(p => p.id === databaseId)
+    if (!db) return
+    const schema = (db.schema ?? []).filter(c => c.id !== colId)
+    await updatePage(databaseId, { schema })
+    // Row property cleanup is performed by databaseStore.cleanupColumn (called from ColumnMenu)
   },
 }))

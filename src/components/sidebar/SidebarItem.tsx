@@ -1,45 +1,32 @@
-import { useRef, useState } from 'react'
-import { useVaultStore } from '../../store/vaultStore'
-import type { Page } from '../../types'
+import { useState } from 'react'
+
+function expandIcon(hasChildren: boolean, expanded: boolean) {
+  if (!hasChildren) return ''
+  return expanded ? '▾' : '▸'
+}
+import { useVaultStore } from '@/store/vaultStore'
+import { useInlineEdit } from '@/hooks/useInlineEdit'
+import type { PageNode } from '@/types'
 
 interface Props {
-  readonly page: Page
+  readonly page: PageNode
   readonly depth?: number
 }
 
 export function SidebarItem({ page, depth = 0 }: Props) {
   const { activePageId, setActivePage, createPage, deletePage, updatePage } = useVaultStore()
   const [expanded, setExpanded] = useState(true)
-  const [renaming, setRenaming] = useState(false)
-  const [renameVal, setRenameVal] = useState(page.title)
-  const inputRef = useRef<HTMLInputElement>(null)
   const isActive = activePageId === page.id
-  const hasChildren = (page.children?.length ?? 0) > 0
+  const hasChildren = page.children.length > 0
 
-  function startRename() {
-    setRenameVal(page.title)
-    setRenaming(true)
-    setTimeout(() => { inputRef.current?.select() }, 0)
-  }
-
-  function commitRename() {
-    setRenaming(false)
-    const val = renameVal.trim()
-    if (val && val !== page.title) updatePage(page.id, { title: val })
-    else setRenameVal(page.title)
-  }
-
-  function onRenameKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') commitRename()
-    if (e.key === 'Escape') { setRenaming(false); setRenameVal(page.title) }
-  }
+  const nameEdit = useInlineEdit(page.title, val => {
+    const trimmed = val.trim()
+    if (trimmed && trimmed !== page.title) updatePage(page.id, { title: trimmed })
+  })
 
   const coverDot = page.cover?.startsWith('#')
     ? <span className="w-2 h-2 rounded-sm shrink-0 ml-0.5" style={{ background: page.cover }} />
     : null
-
-  const expandArrow = expanded ? '▾' : '▸'
-  const expandIcon = hasChildren ? expandArrow : ''
 
   return (
     <div>
@@ -56,7 +43,7 @@ export function SidebarItem({ page, depth = 0 }: Props) {
           className="w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:opacity-100! text-xs shrink-0"
           onClick={() => setExpanded(v => !v)}
         >
-          {expandIcon}
+          {expandIcon(hasChildren, expanded)}
         </button>
 
         {/* Icon */}
@@ -65,30 +52,32 @@ export function SidebarItem({ page, depth = 0 }: Props) {
         {/* Cover dot */}
         {coverDot}
 
-        {/* Title — button when idle, input when renaming */}
-        {renaming ? (
+        {/* Title */}
+        {nameEdit.editing ? (
           <input
-            ref={inputRef}
             autoFocus
             className="flex-1 bg-transparent outline-none border-b text-sm min-w-0"
             style={{ borderColor: 'var(--color-accent)', color: 'var(--color-text)' }}
-            value={renameVal}
-            onChange={e => setRenameVal(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={onRenameKeyDown}
+            value={nameEdit.draft}
+            onChange={e => nameEdit.setDraft(e.target.value)}
+            onBlur={nameEdit.commit}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { nameEdit.commit() }
+              else if (e.key === 'Escape') { nameEdit.cancel() }
+            }}
           />
         ) : (
           <button
             className="flex-1 text-left truncate min-w-0 cursor-pointer"
             onClick={() => setActivePage(page.id)}
-            onDoubleClick={startRename}
+            onDoubleClick={() => nameEdit.startEdit(page.title)}
           >
             {page.title || 'Untitled'}
           </button>
         )}
 
-        {/* Actions — visible on group hover */}
-        {!renaming && (
+        {/* Actions */}
+        {!nameEdit.editing && (
           <span className="hidden group-hover:flex gap-1 ml-1 shrink-0">
             <button
               title="Add sub-page"
@@ -107,7 +96,7 @@ export function SidebarItem({ page, depth = 0 }: Props) {
       {/* Children */}
       {expanded && hasChildren && (
         <div>
-          {page.children!.map(child => (
+          {page.children.map(child => (
             <SidebarItem key={child.id} page={child} depth={depth + 1} />
           ))}
         </div>

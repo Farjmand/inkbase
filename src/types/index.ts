@@ -6,21 +6,26 @@ export interface PropertyDef {
   id: string
   name: string
   type: PropertyType
-  options?: string[]  // used by 'select' type
+  options?: string[]
 }
 
+// Persisted to disk — no derived fields
 export interface Page {
   id: string
   title: string
   icon: string
-  cover: string | null   // hex color OR image URL
+  cover: string | null
   parentId: string | null
   type: PageType
-  content: string        // raw markdown body (below frontmatter)
-  schema?: PropertyDef[] // only for type === 'database'
+  content: string
+  schema?: PropertyDef[]
   createdAt: string
   updatedAt: string
-  children?: Page[]      // populated in-memory only
+}
+
+// In-memory tree node with children populated by buildPageTree
+export interface PageNode extends Page {
+  children: PageNode[]
 }
 
 export interface DatabaseRow {
@@ -34,7 +39,7 @@ export interface DatabaseRow {
 export interface Vault {
   name: string
   handle: FileSystemDirectoryHandle
-  rootPages: Page[]
+  rootPages: PageNode[]
 }
 
 export type CoverType = 'color' | 'image' | null

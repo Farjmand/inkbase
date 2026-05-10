@@ -1,12 +1,6 @@
 import { create } from 'zustand'
-import { v4 as uuidv4 } from 'uuid'
-import type { DatabaseRow, PropertyDef, PropertyType } from '../types'
-import {
-  readDatabaseRows,
-  writeRow,
-  deleteRow as deleteRowFile,
-  createNewRow,
-} from '../lib/fs'
+import type { DatabaseRow } from '@/types'
+import { readDatabaseRows, writeRow, deleteRow as deleteRowFile, createNewRow } from '@/lib/fs'
 import { useVaultStore } from './vaultStore'
 
 interface DatabaseState {
@@ -22,10 +16,7 @@ interface DatabaseState {
     value: string | number | boolean | null
   ) => Promise<void>
   deleteRow: (rowId: string) => Promise<void>
-
-  addColumn: (databaseId: string, name: string, type: PropertyType) => Promise<void>
-  updateColumn: (databaseId: string, colId: string, updates: Partial<PropertyDef>) => Promise<void>
-  deleteColumn: (databaseId: string, colId: string) => Promise<void>
+  cleanupColumn: (databaseId: string, colId: string) => Promise<void>
 }
 
 export const useDatabaseStore = create<DatabaseState>((set, get) => ({
@@ -67,33 +58,26 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   deleteRow: async (rowId) => {
     const { vault } = useVaultStore.getState()
     if (!vault) return
-    await deleteRowFile(vault.handle, rowId)
+    const row = get().rows.find(r => r.id === rowId)
+    if (!row) return
+    await deleteRowFile(vault.handle, row.databaseId, rowId)
     set(state => ({ rows: state.rows.filter(r => r.id !== rowId) }))
   },
 
-  addColumn: async (databaseId, name, type) => {
-    const { flatPages, updatePage } = useVaultStore.getState()
-    const db = flatPages.find(p => p.id === databaseId)
-    if (!db) return
-    const newCol: PropertyDef = { id: uuidv4(), name, type, options: type === 'select' ? [] : undefined }
-    await updatePage(databaseId, { schema: [...(db.schema ?? []), newCol] })
-  },
-
-  updateColumn: async (databaseId, colId, updates) => {
-    const { flatPages, updatePage } = useVaultStore.getState()
-    const db = flatPages.find(p => p.id === databaseId)
-    if (!db) return
-    const schema = (db.schema ?? []).map(col =>
-      col.id === colId ? { ...col, ...updates } : col
+  cleanupColumn: async (databaseId, colId) => {
+    const { vault } = useVaultStore.getState()
+    if (!vault) return
+    const affected = get().rows.filter(
+      r => r.databaseId === databaseId && colId in r.properties
     )
-    await updatePage(databaseId, { schema })
-  },
-
-  deleteColumn: async (databaseId, colId) => {
-    const { flatPages, updatePage } = useVaultStore.getState()
-    const db = flatPages.find(p => p.id === databaseId)
-    if (!db) return
-    const schema = (db.schema ?? []).filter(col => col.id !== colId)
-    await updatePage(databaseId, { schema })
+    if (affected.length === 0) return
+    const updated = affected.map(r => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [colId]: _removed, ...rest } = r.properties
+      return { ...r, properties: rest, updatedAt: new Date().toISOString() }
+    })
+    await Promise.all(updated.map(r => writeRow(vault.handle, r)))
+    const rowMap = new Map(updated.map(r => [r.id, r]))
+    set(state => ({ rows: state.rows.map(r => rowMap.get(r.id) ?? r) }))
   },
 }))

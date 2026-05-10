@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 const COLORS = [
   '#f03e3e','#e67700','#f08c00','#2f9e44','#1971c2','#7048e8',
@@ -15,31 +15,28 @@ interface PicsumImage {
 
 type Tab = 'colors' | 'image' | 'gallery'
 
+const TAB_LABELS: Record<Tab, string> = {
+  colors: '🎨 Colors',
+  image: '🔗 URL',
+  gallery: '🖼 Gallery',
+}
+
 interface Props {
-  anchorRect: DOMRect
   current: string | null
   onSelect: (cover: string | null) => void
   onClose: () => void
 }
 
-export function CoverPicker({ anchorRect, current, onSelect, onClose }: Props) {
-  const ref = useRef<HTMLDivElement>(null)
+export function CoverPicker({ current, onSelect, onClose }: Readonly<Props>) {
   const [tab, setTab] = useState<Tab>('colors')
   const [imageUrl, setImageUrl] = useState('')
   const [images, setImages] = useState<PicsumImage[]>([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [onClose])
-
   async function loadGallery() {
     setLoading(true)
     try {
+      // eslint-disable-next-line react-hooks/purity -- called inside an async event handler, not during render
       const page = Math.floor(Math.random() * 20) + 1
       const res = await fetch(`https://picsum.photos/v2/list?page=${page}&limit=12`)
       const data: PicsumImage[] = await res.json()
@@ -53,26 +50,11 @@ export function CoverPicker({ anchorRect, current, onSelect, onClose }: Props) {
 
   function switchTab(t: Tab) {
     setTab(t)
-    if (t === 'gallery' && images.length === 0) loadGallery()
+    if (t === 'gallery' && images.length === 0) void loadGallery()
   }
 
-  const top = anchorRect.bottom + 8
-  const left = Math.min(anchorRect.left, window.innerWidth - 296)
-
   return (
-    <div
-      ref={ref}
-      className="rounded-xl shadow-2xl border p-3"
-      style={{
-        position: 'fixed',
-        top,
-        left,
-        width: 288,
-        zIndex: 1000,
-        background: 'var(--color-bg)',
-        borderColor: 'var(--color-border)',
-      }}
-    >
+    <div className="rounded-xl p-3" style={{ width: 288 }}>
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-3 pb-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
         {(['colors', 'image', 'gallery'] as Tab[]).map(t => (
@@ -86,7 +68,7 @@ export function CoverPicker({ anchorRect, current, onSelect, onClose }: Props) {
             }}
             onClick={() => switchTab(t)}
           >
-            {t === 'colors' ? '🎨 Colors' : t === 'image' ? '🔗 URL' : '🖼 Gallery'}
+            {TAB_LABELS[t]}
           </button>
         ))}
         {current && (
@@ -130,11 +112,7 @@ export function CoverPicker({ anchorRect, current, onSelect, onClose }: Props) {
             type="url"
             placeholder="Paste image URL…"
             className="w-full px-2 py-1.5 text-sm border rounded-lg outline-none"
-            style={{
-              background: 'transparent',
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text)',
-            }}
+            style={{ background: 'transparent', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
             value={imageUrl}
             onChange={e => setImageUrl(e.target.value)}
           />
@@ -178,11 +156,9 @@ export function CoverPicker({ anchorRect, current, onSelect, onClose }: Props) {
             </div>
           )}
           <button
-            className="mt-2 w-full py-1 text-xs transition-opacity"
-            style={{ color: 'var(--color-text-muted)', opacity: 0.6 }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '0.6')}
-            onClick={() => { setImages([]); loadGallery() }}
+            className="mt-2 w-full py-1 text-xs transition-opacity opacity-60 hover:opacity-100"
+            style={{ color: 'var(--color-text-muted)' }}
+            onClick={() => { setImages([]); void loadGallery() }}
           >
             ↺ Shuffle
           </button>

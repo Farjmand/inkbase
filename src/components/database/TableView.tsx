@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { useDatabaseStore } from '../../store/databaseStore'
-import { useVaultStore } from '../../store/vaultStore'
+import { useDatabaseStore } from '@/store/databaseStore'
+import { useVaultStore } from '@/store/vaultStore'
 import { PropertyCell } from './PropertyCell'
 import { ColumnHeader } from './ColumnMenu'
 import { AddColumnModal } from './AddColumnModal'
 
 export function TableView() {
-  const { activePage } = useVaultStore()
-  const { rows, loadedForId, loadRows, addRow, deleteRow } = useDatabaseStore()
+  const activePage = useVaultStore(s => s.flatPages.find(p => p.id === s.activePageId) ?? null)
+  const { rows, loadRows, addRow, deleteRow } = useDatabaseStore()
   const [addColOpen, setAddColOpen] = useState(false)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
@@ -17,7 +17,7 @@ export function TableView() {
     }
   }, [activePage?.id])
 
-  if (!activePage || activePage.type !== 'database') return null
+  if (activePage?.type !== 'database') return null
 
   const schema = activePage.schema ?? []
 
@@ -30,6 +30,7 @@ export function TableView() {
             No columns yet
           </p>
           <button
+            type="button"
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
             style={{ background: 'var(--color-accent)' }}
             onClick={() => setAddColOpen(true)}
@@ -51,6 +52,7 @@ export function TableView() {
               {/* add column */}
               <th className="w-10">
                 <button
+                  type="button"
                   title="Add column"
                   className="w-full flex items-center justify-center py-2 opacity-40 hover:opacity-100 transition-opacity text-sm"
                   style={{ color: 'var(--color-text)' }}
@@ -79,6 +81,7 @@ export function TableView() {
                 >
                   {hoveredRow === row.id ? (
                     <button
+                      type="button"
                       className="w-full flex items-center justify-center text-xs opacity-60 hover:opacity-100 hover:text-red-500 transition-all"
                       onClick={() => deleteRow(row.id)}
                       title="Delete row"
@@ -105,6 +108,7 @@ export function TableView() {
             <tr>
               <td colSpan={schema.length + 2} style={{ borderTop: '1px solid var(--color-border)' }}>
                 <button
+                  type="button"
                   className="flex items-center gap-2 px-4 py-2 text-sm w-full transition-colors"
                   style={{ color: 'var(--color-text-muted)' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--color-hover)'}

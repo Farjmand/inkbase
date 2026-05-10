@@ -1,44 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
-import { EMOJI_CATEGORIES } from '../../data/emojis'
+import { useState } from 'react'
+import { EMOJI_CATEGORIES } from '@/data/emojis'
 
 interface Props {
-  anchorRect: DOMRect
   current: string
   onSelect: (icon: string) => void
   onClose: () => void
 }
 
-export function IconPicker({ anchorRect, current, onSelect, onClose }: Props) {
-  const ref = useRef<HTMLDivElement>(null)
+export function IconPicker({ current, onSelect, onClose }: Readonly<Props>) {
   const [activeCategory, setActiveCategory] = useState(EMOJI_CATEGORIES[0].name)
-
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [onClose])
-
-  const top = anchorRect.bottom + 8
-  const left = Math.min(anchorRect.left, window.innerWidth - 284)
   const category = EMOJI_CATEGORIES.find(c => c.name === activeCategory) ?? EMOJI_CATEGORIES[0]
 
   return (
-    <div
-      ref={ref}
-      className="rounded-xl shadow-2xl border flex flex-col"
-      style={{
-        position: 'fixed',
-        top,
-        left,
-        width: 280,
-        maxHeight: 320,
-        zIndex: 1000,
-        background: 'var(--color-bg)',
-        borderColor: 'var(--color-border)',
-      }}
-    >
+    <div className="flex flex-col" style={{ width: 280, maxHeight: 320 }}>
       {/* Category tabs */}
       <div
         className="flex overflow-x-auto px-2 pt-2 gap-1 shrink-0"
@@ -67,16 +41,8 @@ export function IconPicker({ anchorRect, current, onSelect, onClose }: Props) {
           {category.emojis.map((emoji, i) => (
             <button
               key={`${emoji}-${i}`}
-              className="text-xl flex items-center justify-center h-8 w-8 rounded transition-colors"
-              style={{
-                background: current === emoji ? 'var(--color-border)' : 'transparent',
-              }}
-              onMouseEnter={e => {
-                if (current !== emoji) e.currentTarget.style.background = 'var(--color-hover)'
-              }}
-              onMouseLeave={e => {
-                if (current !== emoji) e.currentTarget.style.background = 'transparent'
-              }}
+              className="text-xl flex items-center justify-center h-8 w-8 rounded transition-colors hover:[background:var(--color-hover)]"
+              style={{ background: current === emoji ? 'var(--color-border)' : 'transparent' }}
               onClick={() => { onSelect(emoji); onClose() }}
             >
               {emoji}
@@ -88,10 +54,8 @@ export function IconPicker({ anchorRect, current, onSelect, onClose }: Props) {
       {/* Footer */}
       <div className="border-t px-3 py-1.5 shrink-0" style={{ borderColor: 'var(--color-border)' }}>
         <button
-          className="text-xs transition-opacity"
-          style={{ color: 'var(--color-text-muted)', opacity: 0.6 }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '0.6')}
+          className="text-xs opacity-60 hover:opacity-100 transition-opacity"
+          style={{ color: 'var(--color-text-muted)' }}
           onClick={() => { onSelect('📄'); onClose() }}
         >
           Reset to default

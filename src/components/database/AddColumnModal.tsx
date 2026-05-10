@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { PropertyType } from '../../types'
-import { useDatabaseStore } from '../../store/databaseStore'
+import type { PropertyType } from '@/types'
+import { useVaultStore } from '@/store/vaultStore'
 
 const TYPES: { type: PropertyType; label: string; icon: string; desc: string }[] = [
   { type: 'text',     label: 'Text',     icon: 'Aa', desc: 'Plain text'          },
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function AddColumnModal({ databaseId, onClose }: Props) {
-  const { addColumn } = useDatabaseStore()
+  const { addColumn } = useVaultStore()
   const [name, setName] = useState('Untitled')
   const [type, setType] = useState<PropertyType>('text')
   const inputRef = useRef<HTMLInputElement>(null)
