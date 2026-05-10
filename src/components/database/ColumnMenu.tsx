@@ -17,9 +17,11 @@ const TYPE_ICONS: Record<PropertyType, string> = {
 interface Props {
   col: PropertyDef
   databaseId: string
+  sortDirection?: 'asc' | 'desc' | null
+  onSortToggle?: (dir: 'asc' | 'desc') => void
 }
 
-export function ColumnHeader({ col, databaseId }: Readonly<Props>) {
+export function ColumnHeader({ col, databaseId, sortDirection, onSortToggle }: Readonly<Props>) {
   const { updateColumn, deleteColumn } = useVaultStore()
   const { cleanupColumn } = useDatabaseStore()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -84,9 +86,14 @@ export function ColumnHeader({ col, databaseId }: Readonly<Props>) {
             onClick={e => e.stopPropagation()}
           />
         ) : (
-          <span className="flex-1 text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>
-            {col.name}
-          </span>
+          <>
+            <span className="flex-1 text-xs font-medium truncate" style={{ color: 'var(--color-text)' }}>
+              {col.name}
+            </span>
+            {sortDirection && (
+              <span className="text-xs opacity-60">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+            )}
+          </>
         )}
       </button>
 
@@ -96,6 +103,27 @@ export function ColumnHeader({ col, databaseId }: Readonly<Props>) {
           className="absolute z-50 top-full left-0 mt-1 w-44 rounded-lg shadow-lg border py-1"
           style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)' }}
         >
+          {onSortToggle && (
+            <>
+              <button
+                type="button"
+                className="w-full text-left px-3 py-1.5 text-xs hover:[background:var(--color-hover)] flex items-center gap-2"
+                style={{ color: sortDirection === 'asc' ? 'var(--color-accent)' : 'var(--color-text)' }}
+                onClick={() => { onSortToggle('asc'); setMenuOpen(false) }}
+              >
+                ↑ Sort A → Z
+              </button>
+              <button
+                type="button"
+                className="w-full text-left px-3 py-1.5 text-xs hover:[background:var(--color-hover)] flex items-center gap-2"
+                style={{ color: sortDirection === 'desc' ? 'var(--color-accent)' : 'var(--color-text)' }}
+                onClick={() => { onSortToggle('desc'); setMenuOpen(false) }}
+              >
+                ↓ Sort Z → A
+              </button>
+              <div className="border-t mt-1 mb-1" style={{ borderColor: 'var(--color-border)' }} />
+            </>
+          )}
           <button
             type="button"
             className="w-full text-left px-3 py-1.5 text-xs hover:[background:var(--color-hover)] flex items-center gap-2"

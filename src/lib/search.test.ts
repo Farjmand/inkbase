@@ -4,7 +4,7 @@ import type { Page } from '@/types'
 
 const makePage = (id: string, title: string, content: string, tags: string[] = []): Page => ({
   id, title, icon: '📄', cover: null, parentId: null,
-  type: 'page', content, tags, createdAt: '', updatedAt: '',
+  type: 'page', content, tags, sortOrder: 0, createdAt: '', updatedAt: '',
 })
 
 const pages: Page[] = [

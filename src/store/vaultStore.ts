@@ -32,6 +32,8 @@ interface VaultState {
   deletePage: (id: string) => Promise<void>
   reloadVault: () => Promise<void>
 
+  reorderPage: (pageId: string, afterId: string | null) => Promise<void>
+
   // Schema mutations (owned here — databaseStore must not mutate vault state)
   addColumn: (databaseId: string, name: string, type: PropertyType) => Promise<void>
   updateColumn: (databaseId: string, colId: string, updates: Partial<PropertyDef>) => Promise<void>
@@ -90,7 +92,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   createPage: async (parentId = null) => {
     const { vault, flatPages } = get()
     if (!vault) return
-    const newPage = createNewPage(parentId)
+    const siblings = flatPages.filter(p => p.parentId === parentId)
+    const sortOrder = siblings.length > 0 ? Math.max(...siblings.map(p => p.sortOrder)) + 1 : 0
+    const newPage = createNewPage(parentId, sortOrder)
     await writePage(vault.handle, newPage)
     const newFlat = [...flatPages, newPage]
     set({
@@ -105,7 +109,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   createDatabase: async (parentId = null) => {
     const { vault, flatPages } = get()
     if (!vault) return
-    const newDb = createNewDatabase(parentId)
+    const siblings = flatPages.filter(p => p.parentId === parentId)
+    const sortOrder = siblings.length > 0 ? Math.max(...siblings.map(p => p.sortOrder)) + 1 : 0
+    const newDb = createNewDatabase(parentId, sortOrder)
     await writePage(vault.handle, newDb)
     const newFlat = [...flatPages, newDb]
     set({
@@ -166,6 +172,32 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       activePage: deriveActive(flat, activePageId),
     })
     reindex(flat)
+  },
+
+  reorderPage: async (pageId, afterId) => {
+    const { vault, flatPages, updatePage } = get()
+    if (!vault) return
+    const page = flatPages.find(p => p.id === pageId)
+    if (!page) return
+
+    const siblings = flatPages
+      .filter(p => p.parentId === page.parentId && p.id !== pageId)
+      .toSorted((a, b) => a.sortOrder - b.sortOrder)
+
+    let insertIdx = 0
+    if (afterId !== null) {
+      const idx = siblings.findIndex(p => p.id === afterId)
+      if (idx === -1) return // afterId not found in this sibling list — bail
+      insertIdx = idx + 1
+    }
+    siblings.splice(insertIdx, 0, page)
+
+    await Promise.all(
+      siblings.map((p, i) => {
+        if (p.sortOrder === i) return Promise.resolve()
+        return updatePage(p.id, { sortOrder: i })
+      })
+    )
   },
 
   addColumn: async (databaseId, name, type) => {

@@ -19,6 +19,7 @@ export interface Page {
   type: PageType
   content: string
   tags: string[]
+  sortOrder: number
   schema?: PropertyDef[]
   createdAt: string
   updatedAt: string

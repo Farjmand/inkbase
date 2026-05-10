@@ -39,6 +39,7 @@ export function pageToMarkdown(page: Page): string {
     parentId: page.parentId,
     type: page.type,
     tags: page.tags,
+    sortOrder: page.sortOrder,
     createdAt: page.createdAt,
     updatedAt: page.updatedAt,
   }
@@ -62,6 +63,7 @@ export function markdownToPage(raw: string): Page {
     type: VALID_PAGE_TYPES.has(data.type) ? data.type : 'page',
     content: content.trim(),
     tags: sanitizeTags(data.tags),
+    sortOrder: typeof data.sortOrder === 'number' ? data.sortOrder : 0,
     schema: sanitizeSchema(data.schema),
     createdAt: typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString(),
     updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : new Date().toISOString(),
@@ -237,24 +239,27 @@ export function buildPageTree(flat: Page[]): PageNode[] {
       roots.push(page)
     }
   })
-  return roots
+
+  const byOrder = (a: PageNode, b: PageNode) => a.sortOrder - b.sortOrder
+  map.forEach(page => { page.children = page.children.toSorted(byOrder) })
+  return roots.toSorted(byOrder)
 }
 
 // ─── Factories ───────────────────────────────────────────────────────────────
 
-export function createNewPage(parentId: string | null = null): Page {
+export function createNewPage(parentId: string | null = null, sortOrder = 0): Page {
   const now = new Date().toISOString()
   return {
     id: uuidv4(), title: 'Untitled', icon: '📄', cover: null,
-    parentId, type: 'page', content: '', tags: [], createdAt: now, updatedAt: now,
+    parentId, type: 'page', content: '', tags: [], sortOrder, createdAt: now, updatedAt: now,
   }
 }
 
-export function createNewDatabase(parentId: string | null = null): Page {
+export function createNewDatabase(parentId: string | null = null, sortOrder = 0): Page {
   const now = new Date().toISOString()
   return {
     id: uuidv4(), title: 'Untitled Database', icon: '🗃️', cover: null,
-    parentId, type: 'database', content: '', tags: [], schema: [], createdAt: now, updatedAt: now,
+    parentId, type: 'database', content: '', tags: [], sortOrder, schema: [], createdAt: now, updatedAt: now,
   }
 }
 
