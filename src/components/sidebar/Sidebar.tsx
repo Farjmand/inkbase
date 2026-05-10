@@ -1,11 +1,14 @@
 
 import { useVaultStore } from '../../store/vaultStore'
 import { useUIStore } from '../../store/uiStore'
+import { useKnowledgeStore } from '../../store/knowledgeStore'
 import { SidebarItem } from './SidebarItem'
+import { TagList } from './TagList'
 
 export function Sidebar() {
   const { vault, createPage, createDatabase, closeVault } = useVaultStore()
   const { dark, toggleDark } = useUIStore()
+  const { openSearch, openGraph } = useKnowledgeStore()
 
   return (
     <div
@@ -25,6 +28,18 @@ export function Sidebar() {
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            title="Search (⌘K)"
+            className="text-sm opacity-40 hover:opacity-80 transition-opacity"
+            style={{ color: 'var(--color-text)' }}
+            onClick={openSearch}
+          >🔍</button>
+          <button
+            title="Graph view"
+            className="text-sm opacity-40 hover:opacity-80 transition-opacity"
+            style={{ color: 'var(--color-text)' }}
+            onClick={openGraph}
+          >🕸️</button>
           <button
             title={dark ? 'Light mode' : 'Dark mode'}
             className="text-sm opacity-40 hover:opacity-80 transition-opacity"
@@ -51,6 +66,8 @@ export function Sidebar() {
           <SidebarItem key={page.id} page={page} />
         ))}
       </div>
+
+      <TagList />
 
       {/* Footer: New page + New database */}
       <div className="border-t px-3 py-2 flex flex-col gap-0.5" style={{ borderColor: 'var(--color-border)' }}>

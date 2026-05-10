@@ -1,12 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BlockNoteView } from '@blocknote/mantine'
-import { useCreateBlockNote } from '@blocknote/react'
+import { useCreateBlockNote, SuggestionMenuController } from '@blocknote/react'
 import '@blocknote/mantine/style.css'
 import { useVaultStore } from '@/store/vaultStore'
 import { useUIStore } from '@/store/uiStore'
 import { PageHeader } from './PageHeader'
+import { BacklinksPanel } from './BacklinksPanel'
 import { DatabaseView } from '../database/DatabaseView'
 import type { Page } from '@/types'
+import type { DefaultReactSuggestionItem } from '@blocknote/react'
+
+function useWikilinkItems(editor: ReturnType<typeof useCreateBlockNote>) {
+  const flatPages = useVaultStore(s => s.flatPages)
+  return useCallback(async (query: string): Promise<DefaultReactSuggestionItem[]> => {
+    const q = query.replace(/^\[/, '').toLowerCase()
+    return flatPages
+      .filter(p => p.title.toLowerCase().includes(q))
+      .slice(0, 8)
+      .map(p => ({
+        title: p.title,
+        icon: <span>{p.icon}</span>,
+        onItemClick: () => {
+          editor.insertInlineContent([{ type: 'text', text: `[[${p.title}]]`, styles: {} }])
+        },
+      }))
+  }, [editor, flatPages])
+}
 
 // Inner component — keyed on page.id so it fully remounts on page switch
 function PageEditorInner({ page }: Readonly<{ page: Page }>) {
@@ -17,6 +36,7 @@ function PageEditorInner({ page }: Readonly<{ page: Page }>) {
   const contentTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const editor = useCreateBlockNote()
+  const getWikilinkItems = useWikilinkItems(editor)
 
   // Load saved content on mount — key={page.id} guarantees this runs once per page
   useEffect(() => {
@@ -44,13 +64,19 @@ function PageEditorInner({ page }: Readonly<{ page: Page }>) {
     <div className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--color-bg)' }}>
       <div className="flex-1 overflow-y-auto">
         <PageHeader page={page} title={title} onTitleChange={handleTitleChange} />
-        <div className="px-12 pb-16">
+        <div className="px-12 pb-4">
           <BlockNoteView
             editor={editor}
             onChange={handleEditorChange}
             theme={dark ? 'dark' : 'light'}
-          />
+          >
+            <SuggestionMenuController
+              triggerCharacter="["
+              getItems={getWikilinkItems}
+            />
+          </BlockNoteView>
         </div>
+        <BacklinksPanel pageId={page.id} />
       </div>
     </div>
   )

@@ -38,11 +38,17 @@ export function pageToMarkdown(page: Page): string {
     cover: page.cover,
     parentId: page.parentId,
     type: page.type,
+    tags: page.tags,
     createdAt: page.createdAt,
     updatedAt: page.updatedAt,
   }
   if (page.schema) frontmatter.schema = page.schema
   return matter.stringify(page.content || '', frontmatter)
+}
+
+function sanitizeTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
 }
 
 export function markdownToPage(raw: string): Page {
@@ -55,6 +61,7 @@ export function markdownToPage(raw: string): Page {
     parentId: typeof data.parentId === 'string' ? data.parentId : null,
     type: VALID_PAGE_TYPES.has(data.type) ? data.type : 'page',
     content: content.trim(),
+    tags: sanitizeTags(data.tags),
     schema: sanitizeSchema(data.schema),
     createdAt: typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString(),
     updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : new Date().toISOString(),
@@ -239,7 +246,7 @@ export function createNewPage(parentId: string | null = null): Page {
   const now = new Date().toISOString()
   return {
     id: uuidv4(), title: 'Untitled', icon: '📄', cover: null,
-    parentId, type: 'page', content: '', createdAt: now, updatedAt: now,
+    parentId, type: 'page', content: '', tags: [], createdAt: now, updatedAt: now,
   }
 }
 
@@ -247,7 +254,7 @@ export function createNewDatabase(parentId: string | null = null): Page {
   const now = new Date().toISOString()
   return {
     id: uuidv4(), title: 'Untitled Database', icon: '🗃️', cover: null,
-    parentId, type: 'database', content: '', schema: [], createdAt: now, updatedAt: now,
+    parentId, type: 'database', content: '', tags: [], schema: [], createdAt: now, updatedAt: now,
   }
 }
 

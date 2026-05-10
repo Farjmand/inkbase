@@ -11,6 +11,11 @@ import {
   createNewPage,
   createNewDatabase,
 } from '@/lib/fs'
+import { useKnowledgeStore } from './knowledgeStore'
+
+function reindex(pages: Page[]) {
+  useKnowledgeStore.getState().reindex(pages)
+}
 
 interface VaultState {
   vault: { name: string; handle: FileSystemDirectoryHandle; rootPages: PageNode[] } | null
@@ -70,6 +75,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       activePageId: firstId,
       activePage: deriveActive(flat, firstId),
     })
+    reindex(flat)
   },
 
   closeVault: () => set({ vault: null, activePageId: null, activePage: null, flatPages: [] }),
@@ -93,6 +99,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       activePageId: newPage.id,
       activePage: newPage,
     })
+    reindex(newFlat)
   },
 
   createDatabase: async (parentId = null) => {
@@ -107,6 +114,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       activePageId: newDb.id,
       activePage: newDb,
     })
+    reindex(newFlat)
   },
 
   updatePage: async (id, updates) => {
@@ -123,6 +131,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       vault: { ...vault, rootPages: buildPageTree(newFlat) },
       activePage: deriveActive(newFlat, activePageId),
     })
+    reindex(newFlat)
   },
 
   deletePage: async (id) => {
@@ -144,6 +153,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       activePageId: nextId,
       activePage: deriveActive(newFlat, nextId),
     })
+    reindex(newFlat)
   },
 
   reloadVault: async () => {
@@ -155,6 +165,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       vault: { ...vault, rootPages: buildPageTree(flat) },
       activePage: deriveActive(flat, activePageId),
     })
+    reindex(flat)
   },
 
   addColumn: async (databaseId, name, type) => {

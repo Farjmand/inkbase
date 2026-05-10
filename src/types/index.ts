@@ -18,6 +18,7 @@ export interface Page {
   parentId: string | null
   type: PageType
   content: string
+  tags: string[]
   schema?: PropertyDef[]
   createdAt: string
   updatedAt: string
