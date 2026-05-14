@@ -15,6 +15,7 @@ Notion is powerful but your data lives on their servers. Obsidian keeps files lo
 ## Key Features
 
 ### Rich Block Editor
+
 - Notion-style block editing powered by [BlockNote](https://www.blocknotejs.org/)
 - Nested pages with collapsible sidebar tree
 - Auto-save with debounce (no manual Ctrl+S)
@@ -22,6 +23,7 @@ Notion is powerful but your data lives on their servers. Obsidian keeps files lo
 - Dark / light mode, persisted across sessions
 
 ### Local-First Databases *(Phase 3 — just shipped)*
+
 - Create structured databases alongside regular pages
 - Define custom column schemas: **Text · Number · Select · Date · Checkbox**
 - Inline cell editing — click any cell to edit, blur to save
@@ -30,6 +32,7 @@ Notion is powerful but your data lives on their servers. Obsidian keeps files lo
 - Each row persisted as its own `.md` file — survives forever in plain text
 
 ### Zero Backend Architecture
+
 - Uses the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) (Chrome/Edge)
 - "Open a folder as vault" — pick any directory, files stay there
 - No server, no database, no auth — just files
@@ -39,7 +42,7 @@ Notion is powerful but your data lives on their servers. Obsidian keeps files lo
 ## Tech Stack
 
 | Layer | Technology | Why |
-|---|---|---|
+| --- | --- | --- |
 | Framework | React 19 + TypeScript | Type-safe, component-driven UI |
 | Build | Vite 8 | Sub-second HMR, fast production builds |
 | Editor | BlockNote 0.48 | Extensible block editor with Notion UX |
@@ -93,7 +96,7 @@ Open `http://localhost:5173`, click **"Open a folder as vault"**, and pick any f
 ## Roadmap
 
 | Phase | Status | Description |
-|---|---|---|
+| --- |---|---|
 | 1 — Skeleton | ✅ Done | Vite scaffold, block editor, file CRUD, page tree |
 | 2 — Glow-Up | ✅ Done | Covers, icons, dark mode, Notion-style header |
 | 3 — Databases | ✅ Done | Table view, 5 property types, inline editing, row files |
